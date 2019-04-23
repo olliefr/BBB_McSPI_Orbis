@@ -6,6 +6,8 @@
  *
  * Based on the StarterWare GPIO Example (Blinky)
  *
+ * TODO The timer over-waits by a factor of x2 to x4, investigate
+ *
  * Oliver Frolovs, 2019
  */
 /*

@@ -1,5 +1,6 @@
 /*
  * util.c
+ * Timer-related utilities from David Barton's RTC code.
  *
  *  Created on: 22 Apr 2019
  *      Author: Oliver Frolovs

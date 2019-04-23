@@ -1,8 +1,11 @@
 /*
  * util.h
+ * Timer-related utilities from David Barton's RTC code.
+ *
+ * Assumes Timer4 has been initialised.
  *
  *  Created on: 22 Apr 2019
- *      Author: of12343
+ *      Author: Oliver Frolovs
  */
 
 #ifndef UTIL_H_
