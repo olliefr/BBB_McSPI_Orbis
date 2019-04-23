@@ -1,27 +1,13 @@
 /**
- * \file   gpioLEDBlink.c
+ * \file   main.c
  *
- *  \brief  This application uses a GPIO pin to blink the LED.
+ * BeagleBone Black bare metal (StarterWare) and Orbis encoder
+ * SPI communications example.
  *
- *          Application Configurations:
+ * Based on the StarterWare GPIO Example (Blinky)
  *
- *              Modules Used:
- *                  GPIO1
- *
- *              Configuration Parameters:
- *                  None
- *
- *          Application Use Case:
- *              1) The GPIO pin GPIO1[23] is used as an output pin.
- *              2) This pin is alternately driven HIGH and LOW. A finite delay
- *                 is given to retain the pin in its current state.
- *
- *          Running the example:
- *              On running the example, the LED on beaglebone would be seen
- *              turning ON and OFF alternatively.
- *
+ * Oliver Frolovs, 2019
  */
-
 /*
 * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
 */
@@ -56,14 +42,16 @@
 *
 */
 
-
+#include <stdint.h>
+#include "hw_types.h"
 #include "soc_AM335x.h"
 #include "beaglebone.h"
 #include "gpio_v2.h"
 #include "pin_mux.h"
-#include "mcspi.h"
-#include "mcspi_beaglebone.h"
+#include "delay.h"
 #include "consoleUtils.h"
+#include "orbis.h"
+#include "util.h"
 
 /*****************************************************************************
 **                INTERNAL MACRO DEFINITIONS
@@ -71,15 +59,19 @@
 #define GPIO_INSTANCE_ADDRESS           (SOC_GPIO_1_REGS)
 #define GPIO_INSTANCE_PIN_NUMBER        (23)
 
-#define LED_DELAY 0x4FFFFFu
+#define LED_DELAY (0x199999)
 
 /*****************************************************************************
 **                INTERNAL FUNCTION PROTOTYPES
 *****************************************************************************/
 static void Delay(unsigned int count);
-static void LEDGPIOSetup();
-static void ConsoleUARTSetup();
-static void OrbisSetup();
+static void TimerSetup(void);
+static void LEDGPIOSetup(void);
+static void ConsoleUARTSetup(void);
+
+/*****************************************************************************
+**                GLOBAL VARIABLES
+*****************************************************************************/
 
 /*****************************************************************************
 **                INTERNAL FUNCTION DEFINITIONS
@@ -89,14 +81,24 @@ static void OrbisSetup();
 */
 int main()
 {
-    LEDGPIOSetup();
+    GPIO0ModuleClkConfig();
+    GPIOModuleEnable(SOC_GPIO_0_REGS);
+    GPIOModuleReset(SOC_GPIO_0_REGS);
+
     ConsoleUARTSetup();
     ConsoleUtilsPrintf("\n\n-==[ BBB_McSPI_Orbis ]==-\n");
-    ConsoleUtilsPrintf("\n\nInitialising hardware...\n");
+    ConsoleUtilsPrintf("Initialising hardware:\n");
+
+    TimerSetup();
+    ConsoleUtilsPrintf("\t+ Delay timer...\n");
 
     OrbisSetup();
+    ConsoleUtilsPrintf("\t+ Orbis rotary encoder...\n");
 
-    ConsoleUtilsPrintf("\n\nEntering the main loop...\n");
+    LEDGPIOSetup();
+    ConsoleUtilsPrintf("\t+ LEDs...\n");
+
+    ConsoleUtilsPrintf("Entering the main loop...\n");
     while(1)
     {
         /* Driving a logic HIGH on the GPIO pin. */
@@ -105,6 +107,14 @@ int main()
                      GPIO_PIN_HIGH);
 
         Delay(LED_DELAY);
+
+        /* Get data from Orbis */
+        if (OrbisCaptureGet() != ORBIS_CRC_OK) {
+            ConsoleUtilsPrintf("VAL: %x\t\tCRC_RX: %x\t\tCRC_CP: %x\n",
+                               (orbisDataRx[0] << 16) | (orbisDataRx[1] << 8) | orbisDataRx[2],
+                               (uint8_t) ~orbisDataRx[orbisDataRxLength - 1],
+                               OrbisCRC_Buffer(orbisDataRx, orbisDataRxLength - 1));
+        }
 
         /* Driving a logic LOW on the GPIO pin. */
         GPIOPinWrite(GPIO_INSTANCE_ADDRESS,
@@ -124,7 +134,17 @@ static void Delay(volatile unsigned int count)
     while(count--);
 }
 
-static void LEDGPIOSetup()
+static void TimerSetup(void)
+{
+    DMTimer4ModuleClkConfig();
+    DMTimerPreScalerClkDisable(SOC_DMTIMER_4_REGS);
+    DMTimerCounterSet(SOC_DMTIMER_4_REGS, 0);
+    DMTimerReloadSet(SOC_DMTIMER_4_REGS, 0);
+    DMTimerModeConfigure(SOC_DMTIMER_4_REGS, DMTIMER_AUTORLD_NOCMP_ENABLE);
+    DMTimerEnable(SOC_DMTIMER_4_REGS);
+}
+
+static void LEDGPIOSetup(void)
 {
     /* Enabling functional clocks for GPIO1 instance. */
     GPIO1ModuleClkConfig();
@@ -144,14 +164,9 @@ static void LEDGPIOSetup()
                    GPIO_DIR_OUTPUT);
 }
 
-static void ConsoleUARTSetup()
+static void ConsoleUARTSetup(void)
 {
     ConsoleUtilsInit();
     ConsoleUtilsSetType(CONSOLE_UART);
-}
-
-static void OrbisSetup()
-{
-
 }
 /******************************* End of file *********************************/
