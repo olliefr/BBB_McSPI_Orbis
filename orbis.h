@@ -26,6 +26,28 @@
 #define ORBIS_CRC_OK    0u
 #define ORBIS_CRC_FAIL  1u
 
+//
+// Orbis command set
+//
+#define ORBIS_CMD_NONE          0x00u
+#define ORBIS_CMD_SERIAL        0x76u
+#define ORBIS_CMD_SPEED         0x73u
+#define ORBIS_CMD_TEMPERATURE   0x74u
+#define ORBIS_CMD_STATUS        0x64u
+
+//
+// The sizes of parts of responses supported by Orbis,
+// both single- and multi- turn. In bytes. Each byte is 8 bits.
+// This information closely follows page 14 of Orbis datasheet.
+//
+#define ORBIS_SIZE_MULTITURN     2
+#define ORBIS_SIZE_POSITION      2
+#define ORBIS_SIZE_SERIAL        6
+#define ORBIS_SIZE_SPEED         2
+#define ORBIS_SIZE_TEMPERATURE   2
+#define ORBIS_SIZE_STATUS        1
+#define ORBIS_SIZE_CRC           1
+
 extern uint8_t orbisDataRx[ORBIS_BUFFER_SIZE];
 extern uint32_t orbisDataRxLength;
 

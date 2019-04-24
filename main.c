@@ -61,7 +61,7 @@
 #define GPIO_INSTANCE_ADDRESS           (SOC_GPIO_1_REGS)
 #define GPIO_INSTANCE_PIN_NUMBER        (23)
 
-#define LED_DELAY (0x199999)
+#define LED_DELAY (0x122222)
 
 /*****************************************************************************
 **                INTERNAL FUNCTION PROTOTYPES
