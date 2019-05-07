@@ -8,5 +8,7 @@ The 'Bone CPU has a Technical Reference Manual, but SPI module is not well expla
 
 I also have a log file with my findings, which I must edit before adding to this repo. It contains the findings and lists the caveats I have found while experimenting.
 
+The tested operation regimes each have a tag whose name and the commit message explains the configuration parameters.
+
 Signed,
 Oliver
