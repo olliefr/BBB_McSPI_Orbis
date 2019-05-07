@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExportImportMemento.1>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQENABLE ).BFLD( TX0_EMPTY_ENABLE )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQENABLE ).BFLD( RX0_FULL_ENABLE )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQENABLE ).BFLD( EOWKE )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQSTATUS ).BFLD( TX0_EMPTY )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQSTATUS ).BFLD( RX0_FULL )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_IRQSTATUS ).BFLD( EOW )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CONF ).BFLD( FFER )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CONF ).BFLD( FFEW )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CONF ).BFLD( FORCE )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CONF ).BFLD( TRM )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CONF ).BFLD( WL )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0CTRL ).BFLD( EN )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( RXFFF )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( RXFFE )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( TXFFF )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( TXFFE )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( EOT )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( TXS )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_CH0STAT ).BFLD( RXS )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_TX0 ).BFLD( TDATA )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_RX0 ).BFLD( RDATA )"/>
+<VarMeta IMemento.internal.id="--"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_XFERLEVEL ).BFLD( WCNT )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_XFERLEVEL ).BFLD( AFL )"/>
+<VarMeta IMemento.internal.id="GRP( McSPI0 ).REG( MCSPI_XFERLEVEL ).BFLD( AEL )"/>
+</ExportImportMemento.1>

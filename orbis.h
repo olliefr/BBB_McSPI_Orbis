@@ -21,10 +21,12 @@
 #define ORBIS_WORD_COUNT                     5u
 #define ORBIS_BIT_MASK                    0xFFu
 
-#define ORBIS_BUFFER_SIZE    (ORBIS_WORD_COUNT + 5)
-
 #define ORBIS_CRC_OK    0u
 #define ORBIS_CRC_FAIL  1u
+
+// TODO something is wrong with the timer as I can see on the scope; this results in about 8 microsec
+#define ORBIS_DELAY_SINGLE            TIMER_1US
+#define ORBIS_DELAY_MULTI       (2 * TIMER_1US)
 
 //
 // Orbis command set
@@ -47,17 +49,22 @@
 #define ORBIS_SIZE_TEMPERATURE   2
 #define ORBIS_SIZE_STATUS        1
 #define ORBIS_SIZE_CRC           1
+#define ORBIS_SIZE_BUFFER        (ORBIS_SIZE_MULTITURN + ORBIS_SIZE_POSITION + ORBIS_SIZE_SERIAL + ORBIS_SIZE_CRC)
 
-extern uint8_t orbisDataRx[ORBIS_BUFFER_SIZE];
-extern uint32_t orbisDataRxLength;
+extern volatile uint8_t orbisDataRx[ORBIS_SIZE_BUFFER];
+extern volatile uint32_t orbisDataRxLength;
+extern volatile uint32_t orbisReady;
 
 extern uint8_t orbisReceivedCRC;
 extern uint8_t orbisCalculatedCRC;
 extern uint8_t orbisCRCErrorFlag;
 
 void OrbisSetup(void);
+void orbisMcSPIIsr(void);
 uint8_t OrbisCaptureGet(void);
 uint8_t OrbisValidateCRC(void);
-uint8_t OrbisCRC_Buffer(uint8_t* buffer, uint32_t numOfBytes);
+uint8_t OrbisCRC_Buffer(volatile uint8_t* buffer, uint32_t numOfBytes);
+
+// TODO maybe OrbisPrintDataFrame() for debug?
 
 #endif /* ORBIS_H_ */

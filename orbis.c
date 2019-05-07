@@ -2,14 +2,21 @@
  * orbis.c
  * Orbis Rotary Encoder driver for TI StarterWare
  *
- * This driver uses McSPI0 module channel 0 in single-channel, four-pin,
- * FIFO-disabled, Tx/Rx mode. The data is read by polling the channel
- * status register MCSPI_CHxSTAT. "GetSpeed" command is continuously
- * transmitted to the encoder, thus it returns position, and speed.
- * The exception is made for the first data frame which contains
- * the command to be sent, the rest of the frames are processed inside the loop.
+ * This driver uses McSPI0 module channel 0 in single-channel,
+ * four-pin, FIFO Rx-only (half duplex), interrupt-driven mode.
  *
- *  Created on: 22 Apr 2019
+ * The TX_EMPTY and RX_FULL interrupts are processed.
+ *
+ * Since no command is being sent, the size of response is 5 bytes for multi-turn,
+ * or 3 bytes for single-turn Orbis: (ORBIS_SIZE_MULTITURN + ORBIS_SIZE_POSITION + ORBIS_SIZE_CRC).
+ *
+ * Caveat: Each SPI word (WL 1 byte) takes up 2 bytes in the FIFO (TRM, Table 24-9)
+ * but this is irrelevant for setting RX_FULL level. The level is set in relation to
+ * the number of bytes which carry the useful data. That is, reading three words from
+ * the FIFO would return three SPI words, each 1 byte long. Of course, they would be returned
+ * as 32 uint32_t value, so a mask has to be applied.
+ *
+ *  Created in: May 2019
  *      Author: Oliver Frolovs
  */
 #include <stdint.h>
@@ -27,10 +34,13 @@
 
 // The buffer for data read from Orbis, including the CRC. The size of response depends on the command
 // transmitted. Allocate enough memory to store the longest possible response.
-uint8_t orbisDataRx[ORBIS_BUFFER_SIZE];
+volatile uint8_t orbisDataRx[ORBIS_SIZE_BUFFER];
 
 // The length of the response to the last transmitted command, including the CRC.
-uint32_t orbisDataRxLength;
+volatile uint32_t orbisDataRxLength;
+
+// Flag to signal that ISR has successfully read the value from the FIFO
+volatile uint32_t orbisReady;
 
 // The CRC as it has been read from SPI. The CRC is the last byte transmitted. So the value
 // comes from orbisDataRx[orbisDataRxLength-1].
@@ -91,9 +101,9 @@ void OrbisSetup(void)
 
     // Channel options...
 
-    // MCSPI_DATA_LINE_COMM_MODE_6 = D0 enabled for output; receive on D1
+    // MCSPI_DATA_LINE_COMM_MODE_7 = D1 & D0 no output; receive on D1
     McSPIMasterModeConfig(SOC_SPI_0_REGS, MCSPI_SINGLE_CH,
-                          MCSPI_TX_RX_MODE, MCSPI_DATA_LINE_COMM_MODE_6,
+                          MCSPI_RX_ONLY_MODE, MCSPI_DATA_LINE_COMM_MODE_7,
                           ORBIS_SPI_CHANNEL);
 
     // Set D1 to be an input at module level. Why doesn't StarterWare do that? I checked the source!
@@ -107,12 +117,46 @@ void OrbisSetup(void)
     // Set SPI word length
     McSPIWordLengthSet(SOC_SPI_0_REGS, MCSPI_WORD_LENGTH(ORBIS_BITS_PER_WORD), ORBIS_SPI_CHANNEL);
 
-    // No FIFO
-    McSPIRxFIFOConfig(SOC_SPI_0_REGS, MCSPI_RX_FIFO_DISABLE, ORBIS_SPI_CHANNEL);
+    // Enable Rx FIFO
+    McSPIRxFIFOConfig(SOC_SPI_0_REGS, MCSPI_RX_FIFO_ENABLE, ORBIS_SPI_CHANNEL);
     McSPITxFIFOConfig(SOC_SPI_0_REGS, MCSPI_TX_FIFO_DISABLE, ORBIS_SPI_CHANNEL);
+}
 
-    // Reset all interrupt status bits for channel 0 (although interrupt status register is not used in this example)
-    McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) | MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL) | MCSPI_INT_EOWKE);
+// Interrupt handler
+void orbisMcSPIIsr(void)
+{
+    // if tx empty fill register, assert cs, wait
+    if (MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) & McSPIIntStatusGet(SOC_SPI_0_REGS)) {
+
+        // The channel is in the Rx mode, so no need to keep refilling the Tx register.
+        McSPITransmitData(SOC_SPI_0_REGS, ORBIS_CMD_NONE, ORBIS_SPI_CHANNEL);
+
+        McSPIIntDisable(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL));
+        McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL));
+    }
+
+    // if eow then what? rx_full may not be there yet...
+    /*
+    if (MCSPI_INT_EOWKE & McSPIIntStatusGet(SOC_SPI_0_REGS)) {
+
+        McSPIIntDisable(SOC_SPI_0_REGS, MCSPI_INT_EOWKE);
+        McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_EOWKE);
+    }
+    */
+
+    //if rx full read full response
+    if (MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL) & McSPIIntStatusGet(SOC_SPI_0_REGS)) {
+
+        // Read Orbis response from the FIFO (via Rx register)
+        for (uint32_t i = 0; i < orbisDataRxLength; i++) {
+            orbisDataRx[i] = McSPIReceiveData(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL) & ORBIS_BIT_MASK;
+        }
+
+        McSPIIntDisable(SOC_SPI_0_REGS, MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL));
+        McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL));
+
+        orbisReady = 1;
+    }
 }
 
 // Returns ORBIS_CRC_OK or ORBIS_CRC_FAIL
@@ -120,7 +164,20 @@ uint8_t OrbisCaptureGet(void)
 {
     // Just an ordinary null request for now as we don't yet have TX capability. Orbis will
     // respond with position information (16 bit single-turn, 32 bit multi-turn) and CRC (8 bit) only.
-    orbisDataRxLength = ORBIS_SIZE_POSITION + ORBIS_SIZE_SPEED + ORBIS_SIZE_CRC;
+    orbisDataRxLength = ORBIS_SIZE_POSITION + ORBIS_SIZE_CRC;
+
+    // Set transfer levels for Rx in terms of bytes that we wish to READ. In fact, 8 bit SPI word occupies
+    // 2 bytes in FIFO, as per TRM Table 24-9, but this fact is irrelevant for setting AFL and AEL levels.
+    // If the program uses only one WCNT value (the same command is send to the peripheral every time),
+    // then the FIFO trigger levels can be set once and forever in the Setup() for the peripheral. Since
+    // eventually all Orbis commands will be supported, WCNT value would be different for each command, so
+    // the transfer levels should be set before every transfer just as the WCNT is.
+    //
+    // Transfer levels should be set before enabling the channel (AM335x TRM 24.3.2.10.4)
+    McSPIFIFOTrigLvlSet(SOC_SPI_0_REGS, orbisDataRxLength, 1, MCSPI_RX_ONLY_MODE);
+
+    // Word count should be set before enabling the channel (AM335x TRM 24.3.2.10.4)
+    McSPIWordCountSet(SOC_SPI_0_REGS, orbisDataRxLength);
 
     // We are the only device on this SPI bus, so can enable the channel without checking
     // if there is any activity on the bus. The AM335x TRM (24.4.1.9) claims that this action
@@ -128,42 +185,28 @@ uint8_t OrbisCaptureGet(void)
     // this does not happen.
     McSPIChannelEnable(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL);
 
+    // The interrupt status bits should always be reset after the channel is enabled and before
+    // the even is enabled as an interrupt source (TRM 24.3.4.1)
+    //McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) | MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL) | MCSPI_INT_EOWKE);
+    McSPIIntStatusClear(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) | MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL));
+
     // Assert CS manually as we are in four-pin mode. This will set MCSPI_CHxSTAT[TXS] bit,
     // to indicate that the channel's Tx register is empty. This behaviour is a deviation
     // from the AM335x TRM.
     McSPICSAssert(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL);
 
-    // Wait for Orbis to prepare the transmission. Multi-turn Oribs needs at least 7.2 micro-seconds,
-    // and for single turn Orbis 1.25 micro-seconds is enough.
-    // TODO something is wrong with the timer as I can see on the scope; this results in about 8 microsec
-    waitfor(2 * TIMER_1US);
+    // Wait for Orbis to prepare the transmission after CS signal is enabled
+    waitfor(ORBIS_DELAY_MULTI);
 
-    // Now the command can be transmitted...
+    // ?
+    orbisReady = 0;
 
-    // The channel is in the Tx/Rx mode, so need to keep refilling the Tx register.
-    McSPITransmitData(SOC_SPI_0_REGS, ORBIS_CMD_SPEED, ORBIS_SPI_CHANNEL);
+    // Enable interrupts
+    //McSPIIntEnable(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) | MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL) | MCSPI_INT_EOWKE);
+    McSPIIntEnable(SOC_SPI_0_REGS, MCSPI_INT_TX_EMPTY(ORBIS_SPI_CHANNEL) | MCSPI_INT_RX_FULL(ORBIS_SPI_CHANNEL));
 
-    // Wait until the transfer is complete, otherwise the register contains rubbish
-    while (MCSPI_CH_STAT_EOT != (MCSPI_CH_STAT_EOT & McSPIChannelStatusGet(SOC_SPI_0_REGS, 0)));
-
-    // Read the response from Rx register
-    orbisDataRx[0] = McSPIReceiveData(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL) & ORBIS_BIT_MASK;
-
-    // Continue transmitting and receiving until the full response is not read...
-
-    // Transmit dummy frames and read the remaining response frames. The controller in Tx/Rx mode
-    // will not clock out an extra frame at the end.
-    for (uint32_t i = 1; i < orbisDataRxLength; i++) {
-
-        // The channel is in the Tx/Rx mode, so need to keep refilling the Tx register.
-        McSPITransmitData(SOC_SPI_0_REGS, ORBIS_CMD_NONE, ORBIS_SPI_CHANNEL);
-
-        // Wait until the transfer is complete, otherwise the register contains rubbish
-        while (MCSPI_CH_STAT_EOT != (MCSPI_CH_STAT_EOT & McSPIChannelStatusGet(SOC_SPI_0_REGS, 0)));
-
-        // Read the response from Rx register
-        orbisDataRx[i] = McSPIReceiveData(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL) & ORBIS_BIT_MASK;
-    }
+    // Interrupt triggered... wait until the driver has read the value from the FIFO...
+    while (orbisReady != 1);
 
     // We are done transmitting the data, deassert CS
     McSPICSDeAssert(SOC_SPI_0_REGS, ORBIS_SPI_CHANNEL);
@@ -206,7 +249,7 @@ uint8_t OrbisValidateCRC(void)
 // the buffer to use to calculate CRC. The CRC is 8 bit and the length
 // of the preceding data depends on the request/response type.
 //
-uint8_t OrbisCRC_Buffer(uint8_t* buffer, uint32_t numOfBytes)
+uint8_t OrbisCRC_Buffer(volatile uint8_t* buffer, uint32_t numOfBytes)
 {
     uint32_t t;
     uint8_t icrc;

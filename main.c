@@ -51,6 +51,7 @@
 #include "gpio_v2.h"
 #include "pin_mux.h"
 #include "delay.h"
+#include "interrupt.h"
 #include "consoleUtils.h"
 #include "orbis.h"
 #include "util.h"
@@ -67,6 +68,7 @@
 **                INTERNAL FUNCTION PROTOTYPES
 *****************************************************************************/
 static void Delay(unsigned int count);
+static void InterruptSetup(void);
 static void TimerSetup(void);
 static void LEDGPIOSetup(void);
 static void ConsoleUARTSetup(void);
@@ -83,6 +85,8 @@ static void ConsoleUARTSetup(void);
 */
 int main()
 {
+    uint32_t orbisCRCFailures = 0;
+
     GPIO0ModuleClkConfig();
     GPIOModuleEnable(SOC_GPIO_0_REGS);
     GPIOModuleReset(SOC_GPIO_0_REGS);
@@ -91,14 +95,17 @@ int main()
     ConsoleUtilsPrintf("\n\n-==[ BBB_McSPI_Orbis ]==-\n");
     ConsoleUtilsPrintf("Initialising hardware:\n");
 
+    InterruptSetup();
+    ConsoleUtilsPrintf("\t+ Interrupts...\n");
+
     TimerSetup();
     ConsoleUtilsPrintf("\t+ Delay timer...\n");
 
-    OrbisSetup();
-    ConsoleUtilsPrintf("\t+ Orbis rotary encoder...\n");
-
     LEDGPIOSetup();
     ConsoleUtilsPrintf("\t+ LEDs...\n");
+
+    OrbisSetup();
+    ConsoleUtilsPrintf("\t+ Orbis rotary encoder...\n");
 
     ConsoleUtilsPrintf("Entering the main loop...\n");
     while(1)
@@ -112,10 +119,13 @@ int main()
 
         /* Get data from Orbis */
         if (OrbisCaptureGet() != ORBIS_CRC_OK) {
+            orbisCRCFailures++;
+            /*
             ConsoleUtilsPrintf("VAL: %x\t\tCRC_RX: %x\t\tCRC_CP: %x\n",
                                (orbisDataRx[0] << 16) | (orbisDataRx[1] << 8) | orbisDataRx[2],
                                (uint8_t) ~orbisDataRx[orbisDataRxLength - 1],
                                OrbisCRC_Buffer(orbisDataRx, orbisDataRxLength - 1));
+             */
         }
 
         /* Driving a logic LOW on the GPIO pin. */
@@ -134,6 +144,26 @@ int main()
 static void Delay(volatile unsigned int count)
 {
     while(count--);
+}
+
+static void InterruptSetup(void)
+{
+    /* Enable IRQ in CPSR.*/
+    IntMasterIRQEnable();
+
+    // Map McSPI Interrupts to AINTC...
+
+    /* Initialze ARM interrupt controller */
+    IntAINTCInit();
+
+    /* Register McSPIIsr interrupt handler */
+    IntRegister(SYS_INT_SPI0INT, orbisMcSPIIsr);
+
+    /* Set Interrupt Priority */
+    IntPrioritySet(SYS_INT_SPI0INT, 0, AINTC_HOSTINT_ROUTE_IRQ);
+
+    /* Enable system interrupt in AINTC */
+    IntSystemEnable(SYS_INT_SPI0INT);
 }
 
 static void TimerSetup(void)
