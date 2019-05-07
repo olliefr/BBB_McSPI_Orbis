@@ -1,5 +1,5 @@
 # BBB_McSPI_Orbis
-Experimenting with different operation regimes for McSPI controller on BeagleBone Black (AM335x CPU)
+Experimenting with different operation regimes for McSPI controller on BeagleBone Black (AM335x CPU). Orbis rotary encoder serves as a peripheral.
 
 Oliver Frolovs
 
