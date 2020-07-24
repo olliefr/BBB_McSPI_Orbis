@@ -1,14 +1,9 @@
-# BBB_McSPI_Orbis
+# Orbis Rotary Encoder (SPI bus) on BeagleBone Black
 
-**Oliver Frolovs**
+This project implements a bare-metal driver for [*Orbis Rotary Encoder*](https://www.rls.si/en/orbis-true-absolute-rotary-encoder) on a [*BeagleBone Black*](https://beagleboard.org/black) platform. The connecting interface is SPI.
 
-Experimenting with different operation regimes for McSPI controller on BeagleBone Black (AM335x CPU). Orbis rotary encoder serves as a peripheral.
+The *BeagleBone Black* platform is based on the [TI *AM3358* processor](https://www.ti.com/processors/sitara-arm/am335x-cortex-a8/overview.html), which comes with a detailed [*Technical Reference Manual*](https://www.ti.com/lit/pdf/spruh73). However, some information in the chapter describing its SPI module is ambiguous and I had found at least one difference between what the manual says and what the hardware does. So I've been horsing around with the TI *XDS110 Debug Probe* and oscilloscope, working out the correct sequence of operations and learning the TI *StarterWare* no-OS platform support package API.
 
-The 'Bone CPU has a Technical Reference Manual, but SPI module is not well explained, in my opinion. I've been horsing around with the TI XDS110 Debug Probe, working out the correct sequence of operations and clarifying the TI StarterWare API for working with McSPI.
+The operation modes that I had tested each have a tag whose name and the commit message explain the configuration parameters used.
 
-I also have a log file with my findings, which I must edit before adding to this repo. It contains the findings and lists the caveats I have found while experimenting.
-
-The tested operation regimes each have a tag whose name and the commit message explains the configuration parameters.
-
-Signed,
-Oliver
+&mdash; Oliver Frolovs, 2019
